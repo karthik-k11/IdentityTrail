@@ -1,11 +1,13 @@
 from flask import Flask, jsonify
 
 from config import Config
+from database import init_app as init_database
 
 
-def create_app():
+def create_app(config_object=Config):
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_object)
+    init_database(app)
 
     @app.route("/")
     def home():
