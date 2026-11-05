@@ -17,10 +17,23 @@ __pycache__/
 instance/*.db
 instance/*.sqlite
 instance/*.sqlite3
+instance/*.db-*
+instance/*.sqlite-*
+instance/*.sqlite3-*
 
 # IDE
 .vscode/
 .idea/
+
+# Private logs, local reports, and temporary exports
+/audit_logs/
+/cloudtrail_logs/
+/logs/
+/private_cloudtrail/
+/reports/
+/tmp/
+*.log
+*.jsonl
 
 # OS files
 .DS_Store
