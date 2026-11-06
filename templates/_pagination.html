@@ -1,0 +1,20 @@
+{% if pagination %}
+<nav class="pagination" aria-label="Result pages">
+  <span class="result-count">
+    {{ pagination.total }} record{% if pagination.total != 1 %}s{% endif %}
+    {% if pagination.pages > 1 %}
+    · page {{ pagination.page }} of {{ pagination.pages }}
+    {% endif %}
+  </span>
+  {% if pagination.pages > 1 %}
+  <span class="pagination-links">
+    {% if prev_url %}
+    <a class="button button-secondary button-small" href="{{ prev_url }}">Previous</a>
+    {% endif %}
+    {% if next_url %}
+    <a class="button button-secondary button-small" href="{{ next_url }}">Next</a>
+    {% endif %}
+  </span>
+  {% endif %}
+</nav>
+{% endif %}
