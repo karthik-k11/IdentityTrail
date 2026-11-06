@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Investigation Reports · IdentityTrail{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Evidence export</p>
+  <h1>Investigation reports</h1>
+  <p class="lede">
+    Reports are generated from stored events, findings, and analysis results.
+    JSON and CSV exports contain the same evidence scope shown in this preview.
+  </p>
+</section>
+
+{% if error %}
+<div class="alert alert-error" role="alert">
+  <strong>Invalid report scope.</strong>
+  <p>{{ error }}</p>
+</div>
+{% endif %}
+
+<section class="card filter-card">
+  <div class="card-header">
+    <h2>Report scope</h2>
+  </div>
+  <form method="get" action="{{ url_for('reports.index') }}" class="filter-form">
+    <div class="field">
+      <label for="dataset_id">Dataset</label>
+      <select id="dataset_id" name="dataset_id">
+        <option value="">All datasets</option>
+        {% for dataset in datasets %}
+        <option value="{{ dataset.id }}"
+                {% if request.args.get('dataset_id') == dataset.id|string %}selected{% endif %}>
+          #{{ dataset.id }} · {{ dataset.filename }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="identity">Identity key</label>
+      <input type="text" id="identity" name="identity" value="{{ request.args.get('identity', '') }}"
+             placeholder="Optional exact identity key">
+    </div>
+    <div class="field">
+      <label for="start">Start</label>
+      <input type="date" id="start" name="start" value="{{ request.args.get('start', '') }}">
+    </div>
+    <div class="field">
+      <label for="end">End</label>
+      <input type="date" id="end" name="end" value="{{ request.args.get('end', '') }}">
+    </div>
+    <div class="filter-actions">
+      <button class="button" type="submit">Preview report</button>
+      {% if json_url %}
+      <a class="button button-secondary" href="{{ json_url }}">Download JSON</a>
+      {% endif %}
+      {% if csv_url %}
+      <a class="button button-secondary" href="{{ csv_url }}">Download CSV</a>
+      {% endif %}
+    </div>
+  </form>
+  {% if datasets %}
+  <p class="hint">
+    Choose a dataset to focus the report, or leave it as all datasets. CSV export
+    neutralises spreadsheet formula prefixes and both formats mask access-key
+    identifiers and redact secret-like fields.
+  </p>
+  {% else %}
+  <p class="hint">No datasets are stored yet. Upload CloudTrail logs first.</p>
+  {% endif %}
+</section>
+
+{% if report %}
+<section class="stat-grid" aria-label="Report summary">
+  <div class="stat-card">
+    <span class="stat-label">Datasets in scope</span>
+    <strong>{{ report.summary.dataset_count }}</strong>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Events in scope</span>
+    <strong>{{ report.summary.event_count }}</strong>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Findings</span>
+    <strong>{{ report.summary.finding_count }}</strong>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Affected identities</span>
+    <strong>{{ report.summary.identity_count }}</strong>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Source IPs observed</span>
+    <strong>{{ report.summary.source_ip_count }}</strong>
+  </div>
+  <div class="stat-card risk-card">
+    <span class="stat-label">Basic risk score</span>
+    <strong>{{ report.summary.risk.score }} / {{ report.summary.risk.max_score }}</strong>
+    <span class="risk-category risk-{{ report.summary.risk.category }}">
+      {{ report.summary.risk.category|capitalize }}
+    </span>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-header">
+    <h2>{{ report.report_title }}</h2>
+    <span class="pill">Generated {{ report.generated_at }}</span>
+  </div>
+  <p class="hint">
+    Time range:
+    {{ report.summary.time_range.start or 'Not recorded' }} to
+    {{ report.summary.time_range.end or 'Not recorded' }}.
+    Analysis time: {{ report.analysis_time }}.
+  </p>
+
+  <div class="detail-grid two-col">
+    <div>
+      <h3>Severity distribution</h3>
+      <ul class="plain-list">
+        {% for severity, count in report.summary.severity_distribution.items() %}
+        <li>
+          <span class="severity-badge sev-{{ severity }}">{{ severity|capitalize }}</span>
+          {{ count }}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div>
+      <h3>Risk explanation</h3>
+      <p>{{ report.summary.risk.explanation }}</p>
+      <p class="disclaimer">{{ report.summary.risk.disclaimer }}</p>
+    </div>
+  </div>
+</section>
+
+<section class="card table-card">
+  <div class="card-header card-header-padded">
+    <h2>Datasets in scope</h2>
+  </div>
+  {% if report.datasets %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">ID</th>
+          <th scope="col">Filename</th>
+          <th scope="col">Uploaded</th>
+          <th scope="col">Total</th>
+          <th scope="col">Parsed</th>
+          <th scope="col">Failed</th>
+          <th scope="col">Stored</th>
+          <th scope="col">Findings</th>
+          <th scope="col">Last analyzed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dataset in report.datasets %}
+        <tr>
+          <td>{{ dataset.id }}</td>
+          <td class="filename mono">{{ dataset.filename }}</td>
+          <td class="nowrap">{{ dataset.uploaded_at }}</td>
+          <td>{{ dataset.total_events }}</td>
+          <td>{{ dataset.parsed_events }}</td>
+          <td>{{ dataset.failed_events }}</td>
+          <td>{{ dataset.stored_events }}</td>
+          <td>{{ dataset.finding_count }}</td>
+          <td>{{ dataset.last_analyzed_at or 'Not analyzed' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="hint">No datasets are in scope.</p>
+  {% endif %}
+</section>
+
+<section class="card table-card">
+  <div class="card-header card-header-padded">
+    <h2>Detection findings</h2>
+    <span class="pill">{{ report.findings|length }} in preview</span>
+  </div>
+  {% if report.findings %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Severity</th>
+          <th scope="col">Rule</th>
+          <th scope="col">Identity</th>
+          <th scope="col">Source IP</th>
+          <th scope="col">Event time</th>
+          <th scope="col">Dataset</th>
+          <th scope="col">Related event IDs</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for finding in report.findings %}
+        <tr>
+          <td><span class="severity-badge sev-{{ finding.severity }}">{{ finding.severity|capitalize }}</span></td>
+          <td>
+            <a href="{{ url_for('findings.detail', finding_id=finding.finding_id) }}">{{ finding.rule_name }}</a>
+            <span class="subtle mono">{{ finding.rule_id }}</span>
+          </td>
+          <td>{{ finding.identity or 'Not recorded' }}</td>
+          <td class="mono">{{ finding.source_ip or 'Not recorded' }}</td>
+          <td class="nowrap">{{ finding.event_time or 'Not recorded' }}</td>
+          <td class="filename mono">{{ finding.dataset_filename }}</td>
+          <td class="mono small-cell">{{ finding.related_event_ids|join(', ') or 'None' }}</td>
+          <td><a class="text-link" href="{{ url_for('findings.detail', finding_id=finding.finding_id) }}">Evidence</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="hint">No findings are in scope. The exported report will still contain scope, caveats, and empty-state values.</p>
+  {% endif %}
+</section>
+
+<section class="card table-card">
+  <div class="card-header card-header-padded">
+    <h2>Related event timeline</h2>
+  </div>
+  {% if report.timeline %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Event time</th>
+          <th scope="col">Event</th>
+          <th scope="col">Identity</th>
+          <th scope="col">Source IP</th>
+          <th scope="col">Region</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in report.timeline %}
+        <tr>
+          <td class="nowrap">{{ event.event_time or 'Not recorded' }}</td>
+          <td>
+            <span class="mono">{{ event.event_name or 'Not recorded' }}</span>
+            <span class="subtle mono">{{ event.event_source or '' }}</span>
+          </td>
+          <td>{{ event.identity or 'Not recorded' }}</td>
+          <td class="mono">{{ event.source_ip or 'Not recorded' }}</td>
+          <td>{{ event.aws_region or 'Not recorded' }}</td>
+          <td><a class="text-link" href="{{ url_for('events.detail', event_id=event.event_db_id) }}">Event details</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="hint">No timeline events are in scope.</p>
+  {% endif %}
+</section>
+
+<div class="detail-grid two-col">
+  <section class="card">
+    <h2>Recommended investigation steps</h2>
+    <ol class="step-list">
+      {% for step in report.recommended_steps %}<li>{{ step }}</li>{% endfor %}
+    </ol>
+  </section>
+  <section class="card">
+    <h2>Limitations and caveats</h2>
+    <ul class="plain-list">
+      {% for limitation in report.limitations %}<li>{{ limitation }}</li>{% endfor %}
+      {% for caveat in report.caveats %}<li>{{ caveat }}</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <h2>Risk contribution details</h2>
+  </div>
+  {% if report.summary.risk.contributions %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Rule</th>
+          <th scope="col">Severity</th>
+          <th scope="col">Weight</th>
+          <th scope="col">Identity</th>
+          <th scope="col">Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for contribution in report.summary.risk.contributions %}
+        <tr>
+          <td class="mono">{{ contribution.rule_id }}</td>
+          <td><span class="severity-badge sev-{{ contribution.severity }}">{{ contribution.severity|capitalize }}</span></td>
+          <td>{{ contribution.weight }}</td>
+          <td>{{ contribution.identity or 'Not recorded' }}</td>
+          <td>{{ contribution.trigger_reason }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="hint">No finding contributions are available for scoring.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Machine-readable summary</h2>
+  <pre class="code-block">{{ report_json_preview }}</pre>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Upload CloudTrail · IdentityTrail{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">CloudTrail ingestion</p>
+  <h1>Upload CloudTrail logs</h1>
+  <p class="lede">
+    Import a CloudTrail JSON export to validate its structure, normalize event
+    records, and store them in the local investigation database.
+  </p>
+</section>
+
+{% if error %}
+<div class="alert alert-error" role="alert">
+  <strong>Upload failed.</strong>
+  <p>{{ error }}</p>
+  {% if error_details %}
+  <div class="error-details">
+    <p class="error-details-title">Record details</p>
+    <ul class="error-list">
+      {% for item in error_details %}
+      <li>{{ item.message }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if result %}
+<div class="alert alert-success" role="status">
+  <strong>
+    {% if result.failed_records %}
+    Import completed with warnings.
+    {% else %}
+    Import complete.
+    {% endif %}
+  </strong>
+  <p>
+    <span class="mono">{{ result.filename }}</span> was processed. Valid events
+    were saved to dataset #{{ result.dataset_id }}.
+  </p>
+</div>
+
+<section class="card result-card">
+  <div class="card-header">
+    <h2>Upload results</h2>
+    <a class="text-link" href="{{ url_for('dataset_history') }}">View history →</a>
+  </div>
+
+  <dl class="stats">
+    <div>
+      <dt>Filename</dt>
+      <dd class="mono">{{ result.filename }}</dd>
+    </div>
+    <div>
+      <dt>File size</dt>
+      <dd>{{ result.file_size|filesize }}</dd>
+    </div>
+    <div>
+      <dt>Upload timestamp</dt>
+      <dd>{{ result.uploaded_at }} UTC</dd>
+    </div>
+    <div>
+      <dt>Total records</dt>
+      <dd>{{ result.total_records }}</dd>
+    </div>
+    <div>
+      <dt>Successfully parsed</dt>
+      <dd>{{ result.parsed_records }}</dd>
+    </div>
+    <div>
+      <dt>Failed records</dt>
+      <dd>{{ result.failed_records }}</dd>
+    </div>
+    <div>
+      <dt>Duplicate records</dt>
+      <dd>{{ result.duplicate_records }}</dd>
+    </div>
+    <div>
+      <dt>Stored events</dt>
+      <dd>{{ result.inserted_records }}</dd>
+    </div>
+  </dl>
+
+  {% if result.errors %}
+  <div class="error-details">
+    <p class="error-details-title">Records not imported</p>
+    <ul class="error-list">
+      {% for item in result.errors %}
+      <li>{{ item.message }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="card upload-card">
+  <div class="upload-grid">
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('upload') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <div class="field">
+        <label for="file">CloudTrail JSON file</label>
+        <input
+          type="file"
+          id="file"
+          name="file"
+          accept=".json,application/json"
+          required
+        >
+        <p class="hint">
+          Only <code>.json</code> files are accepted. Maximum size:
+          {{ (config.MAX_CONTENT_LENGTH / 1048576)|round(1) }} MB.
+          Maximum records: {{ config.MAX_EVENT_COUNT }}.
+        </p>
+      </div>
+      <button class="button" type="submit">Upload and process</button>
+    </form>
+
+    <aside class="upload-notes">
+      <h2>What happens next?</h2>
+      <ol>
+        <li>The JSON structure and CloudTrail record shape are validated.</li>
+        <li>Individual events are parsed and normalized safely.</li>
+        <li>Valid events are saved transactionally to SQLite.</li>
+      </ol>
+      <p class="hint">
+        The uploaded file is processed in memory and is not permanently stored
+        on disk.
+      </p>
+    </aside>
+  </div>
+</section>
+{% endblock %}
