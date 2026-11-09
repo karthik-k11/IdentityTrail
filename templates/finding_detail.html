@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Finding {{ finding.id }} · IdentityTrail{% endblock %}
+
+{% block content %}
+<section class="page-heading heading-row">
+  <div>
+    <p class="eyebrow">Detection evidence</p>
+    <h1>{{ finding.rule_name }}</h1>
+    <p class="lede">
+      <span class="severity-badge sev-{{ finding.severity }}">{{ finding.severity|capitalize }}</span>
+      <span class="mono">{{ finding.rule_id }}</span>
+      · {{ finding.category }}
+    </p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('findings.index') }}">Back to findings</a>
+</section>
+
+<div class="alert alert-info" role="note">
+  <strong>Investigation indicator.</strong>
+  <p>
+    This finding describes activity that matched a deterministic rule. It does
+    not prove malicious intent or a confirmed compromise.
+  </p>
+</div>
+
+<section class="card">
+  <dl class="stats stats-wide">
+    <div><dt>Finding ID</dt><dd>{{ finding.id }}</dd></div>
+    <div><dt>Dataset</dt><dd>#{{ finding.dataset_id }} · <span class="mono">{{ finding.filename }}</span></dd></div>
+    <div><dt>Affected identity</dt><dd>{{ finding.identity or 'Not recorded' }}</dd></div>
+    <div><dt>Identity key</dt><dd class="mono">{{ finding.identity_key or 'Not recorded' }}</dd></div>
+    <div><dt>Principal ARN</dt><dd class="mono">{{ finding.principal_arn or 'Not recorded' }}</dd></div>
+    <div><dt>Source IP</dt><dd class="mono">{{ finding.source_ip or 'Not recorded' }}</dd></div>
+    <div><dt>Event time</dt><dd>{{ finding.event_time or 'Not recorded' }}</dd></div>
+    <div><dt>Detection timestamp</dt><dd>{{ finding.detection_timestamp }}</dd></div>
+    <div><dt>Related event IDs</dt><dd class="mono">{{ finding.linked_event_ids or 'None linked' }}</dd></div>
+  </dl>
+
+  <div class="detail-grid two-col">
+    <div>
+      <h3>Description</h3>
+      <p>{{ finding.description }}</p>
+    </div>
+    <div>
+      <h3>Trigger reason</h3>
+      <p>{{ finding.trigger_reason }}</p>
+    </div>
+  </div>
+</section>
+
+<div class="code-grid">
+  <section class="card">
+    <div class="card-header">
+      <h2>Supporting evidence</h2>
+      <span class="pill">Redacted</span>
+    </div>
+    <pre class="code-block">{{ evidence_json }}</pre>
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <h2>Recommended investigation steps</h2>
+    </div>
+    {% if recommended_steps %}
+    <ol class="step-list">
+      {% for step in recommended_steps %}<li>{{ step }}</li>{% endfor %}
+    </ol>
+    {% else %}
+    <p class="hint">No recommendations are recorded for this finding.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card table-card">
+  <div class="card-header card-header-padded">
+    <h2>Related events</h2>
+  </div>
+  {% if related_events %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Event time</th>
+          <th scope="col">Event</th>
+          <th scope="col">Identity</th>
+          <th scope="col">Source IP</th>
+          <th scope="col">Region</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in related_events %}
+        <tr>
+          <td class="nowrap">{{ event.event_time or 'Not recorded' }}</td>
+          <td>
+            <span class="mono">{{ event.event_name or 'Not recorded' }}</span>
+            <span class="subtle mono">{{ event.event_source or '' }}</span>
+          </td>
+          <td>{{ event.username or event.principal_arn or event.principal_id or 'Not recorded' }}</td>
+          <td class="mono">{{ event.source_ip or 'Not recorded' }}</td>
+          <td>{{ event.aws_region or 'Not recorded' }}</td>
+          <td><a class="text-link" href="{{ url_for('events.detail', event_id=event.id) }}">Event details</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="hint">No related events are linked to this finding.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Investigation caveats</h2>
+  <ul class="plain-list">
+    <li>Rule matches require validation against change records and business context.</li>
+    <li>Missing CloudTrail fields reduce the available identity and network context.</li>
+    <li>An assumed-role session identifies a role session, not necessarily the original human user.</li>
+    <li>The absence of a finding does not prove that activity was benign.</li>
+  </ul>
+</section>
+{% endblock %}

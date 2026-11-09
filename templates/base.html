@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}IdentityTrail{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="{{ url_for('dashboard.index') }}">
+        <span class="brand-mark">IT</span>
+        <span>
+          <strong>IdentityTrail</strong>
+          <small>Cloud Identity Forensics</small>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="{{ url_for('dashboard.index') }}"
+           {% if request.endpoint == 'dashboard.index' %}class="active"{% endif %}>Dashboard</a>
+        <a href="{{ url_for('upload') }}"
+           {% if request.endpoint == 'upload' %}class="active"{% endif %}>Upload</a>
+        <a href="{{ url_for('dataset_history') }}"
+           {% if request.endpoint == 'dataset_history' %}class="active"{% endif %}>Datasets</a>
+        <a href="{{ url_for('events.index') }}"
+           {% if request.endpoint and request.endpoint.startswith('events.') %}class="active"{% endif %}>Events</a>
+        <a href="{{ url_for('identities.index') }}"
+           {% if request.endpoint and request.endpoint.startswith('identities.') %}class="active"{% endif %}>Identities</a>
+        <a href="{{ url_for('findings.index') }}"
+           {% if request.endpoint and request.endpoint.startswith('findings.') %}class="active"{% endif %}>Findings</a>
+        <a href="{{ url_for('timeline.index') }}"
+           {% if request.endpoint == 'timeline.index' %}class="active"{% endif %}>Timeline</a>
+        <a href="{{ url_for('reports.index') }}"
+           {% if request.endpoint and request.endpoint.startswith('reports.') %}class="active"{% endif %}>Reports</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" id="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+          <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}" role="status">
+            {{ message }}
+          </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>
+        Local investigation workbench · Uploaded CloudTrail logs are processed
+        in memory and stored only in the local SQLite database.
+      </span>
+      <span>
+        Detection findings are investigation indicators, not proof of
+        malicious activity.
+      </span>
+    </div>
+  </footer>
+</body>
+</html>

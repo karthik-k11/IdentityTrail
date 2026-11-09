@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}{{ code }} · IdentityTrail{% endblock %}
+
+{% block content %}
+<section class="card empty-state">
+  <p class="eyebrow">HTTP {{ code }}</p>
+  <h2>{{ title }}</h2>
+  <p>{{ message }}</p>
+  <div class="filter-actions centered-actions">
+    <a class="button" href="{{ url_for('dashboard.index') }}">Return to dashboard</a>
+    <a class="button button-secondary" href="{{ url_for('events.index') }}">Event explorer</a>
+  </div>
+</section>
+{% endblock %}

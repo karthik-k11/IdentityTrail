@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Detection Findings · IdentityTrail{% endblock %}
+
+{% block content %}
+<section class="page-heading heading-row">
+  <div>
+    <p class="eyebrow">Rule-based detection</p>
+    <h1>Detection findings</h1>
+    <p class="lede">
+      Persisted results from transparent detection rules. Findings are
+      investigation indicators; they do not prove malicious activity.
+    </p>
+  </div>
+  <div class="heading-actions">
+    <form method="post" action="{{ url_for('analysis.run_all') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <button class="button" type="submit">Run detection on all datasets</button>
+    </form>
+  </div>
+</section>
+
+{% if error %}
+<div class="alert alert-error" role="alert">
+  <strong>Invalid filter.</strong>
+  <p>{{ error }}</p>
+</div>
+{% endif %}
+
+<section class="card">
+  <div class="card-header">
+    <h2>Run detection for one dataset</h2>
+  </div>
+  {% if datasets %}
+  <form method="post" action="{{ url_for('analysis.run_dataset') }}" class="inline-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+    <div class="field">
+      <label for="analysis_dataset">Dataset</label>
+      <select id="analysis_dataset" name="dataset_id" required>
+        <option value="">Select a dataset</option>
+        {% for dataset in datasets %}
+        <option value="{{ dataset.id }}">
+          #{{ dataset.id }} · {{ dataset.filename }}
+          ({{ dataset.stored_events }} events)
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="button" type="submit">Analyze dataset</button>
+  </form>
+  <p class="hint">
+    Re-analysis replaces that dataset's stored findings, so repeated runs do
+    not create duplicate findings.
+  </p>
+  {% else %}
+  <p class="hint">Upload a dataset before running detection.</p>
+  {% endif %}
+</section>
+
+<section class="card filter-card">
+  <div class="card-header">
+    <h2>Filter findings</h2>
+  </div>
+  <form method="get" action="{{ url_for('findings.index') }}" class="filter-form">
+    <div class="field">
+      <label for="search">Identity search</label>
+      <input type="search" id="search" name="search" value="{{ request.args.get('search', '') }}"
+             placeholder="Username, ARN, identity key">
+    </div>
+    <div class="field">
+      <label for="dataset_id">Dataset</label>
+      <select id="dataset_id" name="dataset_id">
+        <option value="">All datasets</option>
+        {% for dataset in filter_options.datasets %}
+        <option value="{{ dataset.id }}"
+                {% if request.args.get('dataset_id') == dataset.id|string %}selected{% endif %}>
+          #{{ dataset.id }} · {{ dataset.filename }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="severity">Severity</label>
+      <select id="severity" name="severity">
+        <option value="">Any severity</option>
+        {% for severity in ['critical', 'high', 'medium', 'low'] %}
+        <option value="{{ severity }}"
+                {% if request.args.get('severity') == severity %}selected{% endif %}>
+          {{ severity|capitalize }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="category">Category</label>
+      <select id="category" name="category">
+        <option value="">Any category</option>
+        {% for option in filter_options.categories %}
+        <option value="{{ option.value }}"
+                {% if request.args.get('category') == option.value %}selected{% endif %}>
+          {{ option.value }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="rule_id">Rule ID</label>
+      <select id="rule_id" name="rule_id">
+        <option value="">Any rule</option>
+        {% for option in filter_options.rule_ids %}
+        <option value="{{ option.value }}"
+                {% if request.args.get('rule_id') == option.value %}selected{% endif %}>
+          {{ option.value }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="identity">Identity key</label>
+      <input type="text" id="identity" name="identity" value="{{ request.args.get('identity', '') }}"
+             placeholder="Exact stored identity key">
+    </div>
+    <div class="field">
+      <label for="start">Start</label>
+      <input type="date" id="start" name="start" value="{{ request.args.get('start', '') }}">
+    </div>
+    <div class="field">
+      <label for="end">End</label>
+      <input type="date" id="end" name="end" value="{{ request.args.get('end', '') }}">
+    </div>
+    <div class="filter-actions">
+      <button class="button" type="submit">Apply filters</button>
+      <a class="button button-secondary" href="{{ url_for('findings.index') }}">Reset</a>
+    </div>
+  </form>
+</section>
+
+{% if findings %}
+<div class="card table-card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Severity</th>
+          <th scope="col">Rule</th>
+          <th scope="col">Category</th>
+          <th scope="col">Identity</th>
+          <th scope="col">Source IP</th>
+          <th scope="col">Dataset</th>
+          <th scope="col">Event time</th>
+          <th scope="col">Detected</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for finding in findings %}
+        <tr>
+          <td><span class="severity-badge sev-{{ finding.severity }}">{{ finding.severity|capitalize }}</span></td>
+          <td>
+            <a href="{{ url_for('findings.detail', finding_id=finding.id) }}">{{ finding.rule_name }}</a>
+            <span class="subtle mono">{{ finding.rule_id }}</span>
+          </td>
+          <td>{{ finding.category }}</td>
+          <td>{{ finding.identity or 'Not recorded' }}</td>
+          <td class="mono">{{ finding.source_ip or 'Not recorded' }}</td>
+          <td class="filename mono">{{ finding.filename }}</td>
+          <td class="nowrap">{{ finding.event_time or 'Not recorded' }}</td>
+          <td class="nowrap">{{ finding.detection_timestamp }}</td>
+          <td><a class="text-link" href="{{ url_for('findings.detail', finding_id=finding.id) }}">Evidence</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "_pagination.html" %}
+{% elif not error %}
+<div class="card empty-state">
+  <h2>No findings match</h2>
+  <p>
+    Run detection for a dataset, or reset the filters. An empty result does not
+    prove that activity was benign.
+  </p>
+  <a class="button" href="{{ url_for('findings.index') }}">Reset filters</a>
+</div>
+{% endif %}
+
+{% if analysis_runs %}
+<section class="card table-card">
+  <div class="card-header card-header-padded">
+    <h2>Recent analysis runs</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Analyzed at</th>
+          <th scope="col">Dataset</th>
+          <th scope="col">Findings stored</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in analysis_runs %}
+        <tr>
+          <td class="nowrap">{{ run.analyzed_at }}</td>
+          <td class="filename mono">#{{ run.dataset_id }} · {{ run.filename }}</td>
+          <td>{{ run.finding_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

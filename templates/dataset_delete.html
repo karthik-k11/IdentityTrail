@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Dataset #{{ dataset.id }} · IdentityTrail{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Destructive action</p>
+  <h1>Delete dataset #{{ dataset.id }}?</h1>
+  <p class="lede">
+    This removes the selected dataset and every investigation record that
+    depends on it. Other datasets are not affected.
+  </p>
+</section>
+
+{% if error %}
+<div class="alert alert-error" role="alert">
+  <strong>Deletion not confirmed.</strong>
+  <p>{{ error }}</p>
+</div>
+{% endif %}
+
+<section class="card">
+  <div class="alert alert-error" role="alert">
+    <strong>This action cannot be undone.</strong>
+    <p>
+      Deleting <span class="mono">{{ dataset.filename }}</span> permanently
+      removes {{ stored_events }} stored event(s) and {{ finding_count }}
+      finding(s), including their finding-event links and analysis-run records.
+    </p>
+  </div>
+
+  <dl class="stats stats-wide">
+    <div><dt>Dataset ID</dt><dd>{{ dataset.id }}</dd></div>
+    <div><dt>Filename</dt><dd class="mono">{{ dataset.filename }}</dd></div>
+    <div><dt>Uploaded</dt><dd>{{ dataset.uploaded_at }} UTC</dd></div>
+    <div><dt>Stored events</dt><dd>{{ stored_events }}</dd></div>
+    <div><dt>Stored findings</dt><dd>{{ finding_count }}</dd></div>
+  </dl>
+
+  <form method="post" action="{{ url_for('datasets.delete', dataset_id=dataset.id) }}"
+        class="delete-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+    <label class="checkbox-label">
+      <input type="checkbox" name="confirm" value="yes" required>
+      I understand that this dataset and its related investigation records will
+      be permanently deleted.
+    </label>
+    <div class="filter-actions">
+      <button class="button button-danger" type="submit">Permanently delete dataset</button>
+      <a class="button button-secondary" href="{{ url_for('dataset_history') }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

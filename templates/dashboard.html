@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · IdentityTrail{% endblock %}
+
+{% block content %}
+<section class="page-heading heading-row">
+  <div>
+    <p class="eyebrow">Investigation overview</p>
+    <h1>Security dashboard</h1>
+    <p class="lede">
+      Metrics and distributions from the local CloudTrail evidence database.
+      Every value on this page is calculated from stored records.
+    </p>
+  </div>
+  <div class="heading-actions">
+    <form method="post" action="{{ url_for('analysis.run_all') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <button class="button" type="submit">Run detection on all datasets</button>
+    </form>
+    <a class="button button-secondary" href="{{ url_for('upload') }}">Upload logs</a>
+  </div>
+</section>
+
+{% if metrics.event_count == 0 %}
+<div class="card empty-state">
+  <h2>No evidence stored yet</h2>
+  <p>
+    Upload a CloudTrail JSON export to populate the dashboard, event explorer,
+    identity explorer, detection findings, timeline, and reports.
+  </p>
+  <a class="button" href="{{ url_for('upload') }}">Upload CloudTrail logs</a>
+</div>
+{% else %}
+
+<section class="stat-grid" aria-label="Database metrics">
+  <div class="stat-card">
+    <span class="stat-label">Events analyzed</span>
+    <strong>{{ metrics.event_count }}</strong>
+    <span class="stat-note">Stored normalized events</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Datasets</span>
+    <strong>{{ metrics.dataset_count }}</strong>
+    <span class="stat-note">Uploaded CloudTrail files</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Unique identities</span>
+    <strong>{{ metrics.identity_count }}</strong>
+    <span class="stat-note">Events with identity attributes</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Source IPs</span>
+    <strong>{{ metrics.source_ip_count }}</strong>
+    <span class="stat-note">Distinct observed addresses</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Findings</span>
+    <strong>{{ metrics.finding_count }}</strong>
+    <span class="stat-note">Persisted rule detections</span>
+  </div>
+  <div class="stat-card stat-critical">
+    <span class="stat-label">Critical</span>
+    <strong>{{ metrics.critical_count }}</strong>
+    <span class="stat-note">Highest review priority</span>
+  </div>
+  <div class="stat-card stat-high">
+    <span class="stat-label">High</span>
+    <strong>{{ metrics.high_count }}</strong>
+    <span class="stat-note">High review priority</span>
+  </div>
+  <div class="stat-card stat-medium">
+    <span class="stat-label">Medium / Low</span>
+    <strong>{{ metrics.medium_count }} / {{ metrics.low_count }}</strong>
+    <span class="stat-note">Contextual indicators</span>
+  </div>
+</section>
+
+<div class="dashboard-grid">
+  <section class="card">
+    <div class="card-header">
+      <h2>Finding severity distribution</h2>
+      <a class="text-link" href="{{ url_for('findings.index') }}">All findings →</a>
+    </div>
+    {% set finding_total = metrics.finding_count or 1 %}
+    <div class="bar-list">
+      {% for severity in ['critical', 'high', 'medium', 'low'] %}
+      {% set count = severity_counts[severity] %}
+      <div class="bar-row">
+        <span class="severity-badge sev-{{ severity }}">{{ severity|capitalize }}</span>
+        <div class="bar-track">
+          <div class="bar-fill bar-{{ severity }}"
+               style="width: {{ (count / finding_total * 100)|round(1) }}%"></div>
+        </div>
+        <span class="bar-value">{{ count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% if metrics.finding_count == 0 %}
+    <p class="hint">
+      No findings are stored. Run detection after uploading a dataset to
+      evaluate the built-in rules.
+    </p>
+    {% endif %}
+  </section>
+
+  <section class="card risk-card">
+    <div class="card-header">
+      <h2>Basic risk assessment</h2>
+      <span class="risk-category risk-{{ recent_risk.category }}">
+        {{ recent_risk.category|capitalize }}
+      </span>
+    </div>
+    <div class="risk-score">
+      <strong>{{ recent_risk.score }}</strong>
+      <span>/ {{ recent_risk.max_score }}</span>
+    </div>
+    <p class="risk-explanation">{{ recent_risk.explanation }}</p>
+    <p class="hint">
+      {{ recent_risk.unique_findings }} unique finding(s) contributed.
+      Duplicate evidence counted: {{ recent_risk.duplicate_findings_ignored }}.
+    </p>
+    <p class="disclaimer">{{ recent_risk.disclaimer }}</p>
+    <a class="text-link" href="{{ url_for('findings.index') }}">Review contributing findings →</a>
+  </section>
+</div>
+
+<div class="dashboard-grid">
+  <section class="card">
+    <div class="card-header">
+      <h2>Most frequently triggered rules</h2>
+    </div>
+    {% if rule_counts %}
+    {% set max_rule = rule_counts|map(attribute='count')|max %}
+    <div class="bar-list">
+      {% for rule in rule_counts %}
+      <div class="bar-row rule-row">
+        <span class="rule-label">
+          <span class="mono">{{ rule.rule_id }}</span>
+          <small>{{ rule.rule_name }}</small>
+        </span>
+        <div class="bar-track">
+          <div class="bar-fill bar-accent"
+               style="width: {{ (rule.count / max_rule * 100)|round(1) }}%"></div>
+        </div>
+        <span class="bar-value">{{ rule.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="hint">No rules have produced findings yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <h2>Event distribution over time</h2>
+    </div>
+    {% if distribution %}
+    <div class="bar-list">
+      {% for day in distribution %}
+      <div class="bar-row">
+        <span class="mono day-label">{{ day.day }}</span>
+        <div class="bar-track">
+          <div class="bar-fill bar-accent" style="width: {{ day.percent }}%"></div>
+        </div>
+        <span class="bar-value">{{ day.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="hint">Events grouped by CloudTrail event date (latest 30 days).</p>
+    {% else %}
+    <p class="hint">No dated events are available for distribution.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card table-card">
+  <div class="card-header card-header-padded">
+    <h2>Recent suspicious activity</h2>
+    <a class="text-link" href="{{ url_for('findings.index') }}">View all →</a>
+  </div>
+  {% if recent_findings %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Severity</th>
+          <th scope="col">Rule</th>
+          <th scope="col">Identity</th>
+          <th scope="col">Source IP</th>
+          <th scope="col">Event time</th>
+          <th scope="col">Dataset</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for finding in recent_findings %}
+        <tr>
+          <td>
+            <span class="severity-badge sev-{{ finding.severity }}">
+              {{ finding.severity|capitalize }}
+            </span>
+          </td>
+          <td>
+            <a href="{{ url_for('findings.detail', finding_id=finding.id) }}">
+              {{ finding.rule_name }}
+            </a>
+            <span class="subtle mono">{{ finding.rule_id }}</span>
+          </td>
+          <td>{{ finding.identity or 'Not recorded' }}</td>
+          <td class="mono">{{ finding.source_ip or 'Not recorded' }}</td>
+          <td class="nowrap">{{ finding.event_time or 'Not recorded' }}</td>
+          <td class="filename mono">{{ finding.filename }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-inline">
+    <p>No findings are stored yet. Run detection to evaluate the rules.</p>
+    <form method="post" action="{{ url_for('analysis.run_all') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <button class="button button-small" type="submit">Run detection</button>
+    </form>
+  </div>
+  {% endif %}
+</section>
+
+{% endif %}
+{% endblock %}

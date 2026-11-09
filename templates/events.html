@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Event Explorer · IdentityTrail{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Stored evidence</p>
+  <h1>Event explorer</h1>
+  <p class="lede">
+    Search normalized CloudTrail events across every uploaded dataset. Open an
+    event to inspect its normalized fields and the preserved raw record
+    separately.
+  </p>
+</section>
+
+{% if error %}
+<div class="alert alert-error" role="alert">
+  <strong>Invalid filter.</strong>
+  <p>{{ error }}</p>
+</div>
+{% endif %}
+
+<section class="card filter-card">
+  <form method="get" action="{{ url_for('events.index') }}" class="filter-form">
+    <div class="field">
+      <label for="search">Search</label>
+      <input type="search" id="search" name="search" value="{{ request.args.get('search', '') }}"
+             placeholder="Event name, identity, IP, event ID">
+    </div>
+    <div class="field">
+      <label for="dataset_id">Dataset</label>
+      <select id="dataset_id" name="dataset_id">
+        <option value="">All datasets</option>
+        {% for dataset in filter_options.datasets %}
+        <option value="{{ dataset.id }}"
+                {% if request.args.get('dataset_id') == dataset.id|string %}selected{% endif %}>
+          #{{ dataset.id }} · {{ dataset.filename }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="event_name">Event name</label>
+      <select id="event_name" name="event_name">
+        <option value="">Any event</option>
+        {% for option in filter_options.event_names %}
+        <option value="{{ option.value }}"
+                {% if request.args.get('event_name') == option.value %}selected{% endif %}>
+          {{ option.value }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="source_ip">Source IP</label>
+      <input type="text" id="source_ip" name="source_ip"
+             value="{{ request.args.get('source_ip', '') }}" placeholder="e.g. 192.0.2.10">
+    </div>
+    <div class="field">
+      <label for="region">AWS region</label>
+      <select id="region" name="region">
+        <option value="">Any region</option>
+        {% for option in filter_options.regions %}
+        <option value="{{ option.value }}"
+                {% if request.args.get('region') == option.value %}selected{% endif %}>
+          {{ option.value }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="start">Start</label>
+      <input type="date" id="start" name="start" value="{{ request.args.get('start', '') }}">
+    </div>
+    <div class="field">
+      <label for="end">End</label>
+      <input type="date" id="end" name="end" value="{{ request.args.get('end', '') }}">
+    </div>
+    <div class="filter-actions">
+      <button class="button" type="submit">Apply filters</button>
+      <a class="button button-secondary" href="{{ url_for('events.index') }}">Reset</a>
+    </div>
+  </form>
+</section>
+
+{% if events %}
+<div class="card table-card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Event time</th>
+          <th scope="col">Event</th>
+          <th scope="col">Category</th>
+          <th scope="col">Identity</th>
+          <th scope="col">Source IP</th>
+          <th scope="col">Region</th>
+          <th scope="col">Dataset</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+        <tr>
+          <td class="nowrap">{{ event.event_time or 'Not recorded' }}</td>
+          <td>
+            <span class="mono">{{ event.event_name or 'Not recorded' }}</span>
+            <span class="subtle mono">{{ event.event_source or '' }}</span>
+          </td>
+          <td>{{ event.category }}</td>
+          <td>
+            {{ event.username or event.principal_arn or event.principal_id or 'Not recorded' }}
+            {% if event.access_key_masked != 'Not recorded' %}
+            <span class="subtle mono">{{ event.access_key_masked }}</span>
+            {% endif %}
+          </td>
+          <td class="mono">{{ event.source_ip or 'Not recorded' }}</td>
+          <td>{{ event.aws_region or 'Not recorded' }}</td>
+          <td class="nowrap">#{{ event.dataset_id }}</td>
+          <td>
+            <a class="text-link" href="{{ url_for('events.detail', event_id=event.id) }}">Details</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "_pagination.html" %}
+{% elif not error %}
+<div class="card empty-state">
+  <h2>No events match</h2>
+  <p>
+    {% if request.args %}
+    Adjust or reset the filters to broaden the search.
+    {% else %}
+    Upload a CloudTrail JSON file to store events for investigation.
+    {% endif %}
+  </p>
+  <a class="button" href="{{ url_for('upload') }}">Upload CloudTrail logs</a>
+</div>
+{% endif %}
+{% endblock %}
